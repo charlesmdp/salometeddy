@@ -28,6 +28,8 @@ Documentation : https://developers.cloudflare.com/pages/framework-guides/deploy-
 
 [Entrer dans la visite à pied](https://salometeddy.pages.dev/#visite)
 
+![Départ de la visite devant la porte en bois](docs/palier-visite.jpg)
+
 Le lien `#visite` commence à hauteur d’yeux sur un petit **palier fictif**, devant la **porte d’entrée en bois fermée**. Cliquer sur « Cliquer pour commencer », puis appuyer sur **E** ou sur « Ouvrir la porte d’entrée » pour entrer. Le palier est un décor ajouté pour la visite, extérieur au plan projet et exclu des 101,36 m².
 
 Un clic sur « Cliquer pour commencer » active le regard libre à la souris. Le navigateur exige ce clic avant de capturer la souris. Si la capture n’est pas disponible, le mode clic-glisser reste utilisable.
@@ -98,4 +100,4 @@ Le moteur Three.js est empaqueté avec le site. Les textures sont générées lo
 
 Tests automatiques : surfaces, ouvertures contenues dans les murs, repérage des pièces, géométrie finie, hauteurs de coupe, collisions et accessibilité de toutes les pièces depuis le palier. Détection de la porte depuis le point de départ, collision porte fermée et passage porte ouverte. Orientation des assises, liens directs, vitesse, collisions en course, pause et saut. Compilation de production Vite.
 
-La machine de contrôle utilisée pour la première version ne dispose pas de WebGL : la visite et le rendu GPU n'ont pas pu y être validés dans le navigateur. Un rendu du modèle dans un moteur 3D séparé sert au contrôle d'agencement, sans équivalence avec le rendu interactif.
+Contrôle sur la version Cloudflare publiée : rendu WebGL, arrivée sur le palier, ouverture avec E, passage dans l’entrée, retour à la maquette et nouveau départ porte fermée. Les déplacements et la pause ont été vérifiés en mode clic-glisser ; la capture de la souris reste à vérifier par un clic manuel dans le navigateur. La capture ci-dessus provient du site publié. L’aperçu global en haut de ce document provient d’un moteur 3D séparé.
