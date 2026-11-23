@@ -435,11 +435,13 @@ export function createFurniture(parent) {
   book(g, dx + 0.42, 0.81, dz, 0.2, 0.025, 0.26, "#68836f");
   plant(g, ...p(267, 1220), 1.6);
   rug(g, ...p(450, 1070), 2.5, 2.3);
+  // Contre le mur plein à droite du passage vers le séjour, hors de l’ouverture.
+  const [entryArtX, entryArtZ] = p(707 - 29 / 2, 1240);
   art(
     g,
-    ...[...p(675, 1000)].slice(0, 1),
+    entryArtX - 0.021,
     1.8,
-    p(675, 1000)[1],
+    entryArtZ,
     0.85,
     1.15,
     -Math.PI / 2,
