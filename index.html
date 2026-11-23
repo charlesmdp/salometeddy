@@ -192,13 +192,43 @@
           <div class="walk-top">
             <span class="walk-badge"
               >VISITE À PIED <b id="current-room">Séjour</b></span
-            ><button id="exit-walk">Quitter la visite <kbd>Échap</kbd></button>
+            >
+            <div class="walk-actions">
+              <button id="share-walk" title="Copier le lien direct de visite">
+                Copier le lien</button
+              ><button id="exit-walk">Vue maquette</button>
+            </div>
+          </div>
+          <div id="walk-start" hidden>
+            <div class="walk-start-card">
+              <span class="eyebrow">VISITE LIBRE</span>
+              <h2 id="walk-start-title">À vous d’explorer.</h2>
+              <p>
+                Regardez autour de vous avec la souris et déplacez-vous comme
+                dans un jeu.
+              </p>
+              <button id="start-exploring">Cliquer pour commencer</button>
+              <div class="walk-start-keys">
+                <span><kbd>ZQSD</kbd> / <kbd>WASD</kbd> marcher</span
+                ><span><kbd>Maj</kbd> accélérer</span
+                ><span><kbd>E</kbd> ouvrir</span
+                ><span><kbd>Échap</kbd> pause</span>
+              </div>
+              <button id="drag-look">Utiliser le clic-glisser</button>
+            </div>
           </div>
           <span class="crosshair"></span
           ><button id="interact" hidden>Ouvrir la porte <kbd>E</kbd></button>
-          <div class="walk-bottom">
-            Cliquer et glisser pour regarder <span>·</span> <kbd>Z</kbd
-            ><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> ou flèches pour avancer
+          <div class="walk-bottom" id="walk-help">
+            <span class="desktop-walk-help"
+              >Souris : regarder <b>·</b> <kbd>ZQSD</kbd> / <kbd>WASD</kbd> :
+              marcher <b>·</b> <kbd>Maj</kbd> : accélérer <b>·</b>
+              <kbd>E</kbd> : ouvrir <b>·</b> <kbd>Espace</kbd> : sauter
+              <b>·</b> <kbd>Échap</kbd> : pause</span
+            >
+            <span class="touch-walk-help"
+              >Joystick pour marcher · Glisser à droite pour regarder</span
+            >
           </div>
           <div id="joystick"><div id="joystick-knob"></div></div>
         </div>
@@ -241,11 +271,26 @@
       <div class="dialog-shortcuts">
         <strong>Visite à pied</strong>
         <p>
-          ZQSD, WASD ou flèches : marcher. Glisser : regarder. E : actionner la
-          porte proche. L : éclairages. Échap : sortir. Sur mobile : joystick à
-          gauche, regard à droite.
+          ZQSD, WASD ou flèches : marcher. Souris : regarder. Maj : accélérer. E
+          ou clic : ouvrir la porte ou la fenêtre visée. Espace : sauter. L :
+          éclairages. Échap : libérer la souris et mettre en pause. Sur mobile :
+          joystick à gauche, regard à droite. Le lien #visite ouvre directement
+          la visite.
         </p>
       </div>
+    </dialog>
+    <dialog id="share-dialog">
+      <button id="close-share" class="dialog-close" aria-label="Fermer">
+        ×
+      </button>
+      <h2>Partager la visite.</h2>
+      <p>Copie ce lien pour ouvrir directement la visite à pied.</p>
+      <input
+        id="share-url"
+        type="url"
+        readonly
+        aria-label="Lien direct de la visite"
+      />
     </dialog>
     <script type="module" src="/src/main.js"></script>
   </body>

@@ -151,3 +151,36 @@ test("Furniture batches retain all material groups after merging", () => {
   );
   assert.ok(verts > 100000);
 });
+
+test("Dining chairs face the table and the armchair faces the coffee table", async () => {
+  const { createFurniture } = await import("../src/furniture.js");
+  const furniture = createFurniture(new THREE.Group());
+  furniture.updateMatrixWorld(true);
+  const table = furniture
+    .getObjectByName("dining-table-top")
+    .getWorldPosition(new THREE.Vector3());
+  const coffee = furniture
+    .getObjectByName("coffee-table-top")
+    .getWorldPosition(new THREE.Vector3());
+  const chairs = [];
+  furniture.traverse((o) => {
+    if (o.name.startsWith("dining-chair-")) chairs.push(o);
+  });
+  assert.equal(chairs.length, 8);
+  function assertFacing(seat, target) {
+    const center = seat.getWorldPosition(new THREE.Vector3());
+    const back = seat
+      .getObjectByName("chair-back")
+      .getWorldPosition(new THREE.Vector3());
+    const forward = center.clone().sub(back);
+    forward.y = 0;
+    const toward = target.clone().sub(center);
+    toward.y = 0;
+    assert.ok(
+      forward.normalize().dot(toward.normalize()) > 0.6,
+      seat.name + " must face its table",
+    );
+  }
+  chairs.forEach((chair) => assertFacing(chair, table));
+  assertFacing(furniture.getObjectByName("salon-armchair"), coffee);
+});

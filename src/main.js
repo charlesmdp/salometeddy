@@ -8,6 +8,14 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { buildModel } from "./model.js";
 import {
+  parseViewHash,
+  visitUrl,
+  createWalker,
+  stopWalker,
+  jumpWalker,
+  stepWalker,
+} from "./navigation.js";
+import {
   p,
   SCALE,
   H,
@@ -86,7 +94,7 @@ let mode = "overview",
   lighting = "day",
   lastCut = 1.2,
   flight = null,
-  nearestDoor = null;
+  nearestInteraction = null;
 let dirty = true,
   frames = 0;
 const target = new THREE.Vector3(3.75, 0, 5.1),
@@ -202,6 +210,7 @@ async function init() {
   composer.addPass(ssao);
   composer.addPass(new OutputPass());
   attachEvents();
+  applyViewHash();
   resize();
   requestAnimationFrame(tick);
   setTimeout(() => {
@@ -246,10 +255,11 @@ function animateCamera(position, aim, duration = 900) {
   };
   dirty = true;
 }
-function switchView(next) {
+function switchView(next, { syncHash = true } = {}) {
   flight = null;
-  if (walking) exitWalk();
+  if (walking) exitWalk({ syncHash: false });
   mode = next;
+  if (syncHash) writeViewHash(next === "plan" ? "plan" : "");
   controls.object = activeCamera();
   controls.enableRotate = mode !== "plan";
   controls.target.copy(target);
@@ -280,10 +290,7 @@ function focusRoom(id) {
   const r = rooms.find((r) => r.id === id);
   if (!r) return;
   if (walking) {
-    const [x, z] = p(...r.spawn);
-    camera.position.set(x, 1.65, z);
-    const [tx, tz] = p(...r.look);
-    lookAt(new THREE.Vector3(tx, 1.25, tz));
+    placeVisitor(id);
     return;
   }
   if (mode === "plan") switchView("overview");
@@ -346,49 +353,134 @@ let yaw = 0,
   walkBefore = null,
   drag = null,
   stick = { x: 0, z: 0 };
+let walker = createWalker(),
+  walkPaused = false,
+  hasExplored = false;
+let lookMode = matchMedia("(pointer: fine)").matches ? "pointer" : "drag";
+let lockPending = false,
+  interactionElapsed = 0;
+const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+
+function writeViewHash(hash) {
+  const url = new URL(location.href);
+  url.hash = hash;
+  if (url.href !== location.href) history.pushState(null, "", url);
+}
+function applyViewHash() {
+  const route = parseViewHash(
+    location.hash,
+    rooms.map((r) => r.id),
+  );
+  if (route.mode === "walk") {
+    if (!walking)
+      enterWalk({ syncHash: false, roomId: route.roomId || "sejour" });
+    else if (route.roomId) placeVisitor(route.roomId);
+  } else if (walking || route.mode !== mode) {
+    switchView(route.mode, { syncHash: false });
+  }
+}
 function lookAt(point) {
   camera.lookAt(point);
   const e = new THREE.Euler().setFromQuaternion(camera.quaternion, "YXZ");
   yaw = e.y;
   pitch = e.x;
 }
-function enterWalk() {
+function placeVisitor(roomId = "sejour") {
+  const r = rooms.find((r) => r.id === roomId) || rooms[0];
+  const [x, z] = p(...r.spawn),
+    [tx, tz] = p(...r.look);
+  walker = createWalker(x, z);
+  camera.position.set(x, 1.65, z);
+  lookAt(new THREE.Vector3(tx, 1.45, tz));
+  nearestInteraction = null;
+  interactionElapsed = 0.1;
+  dirty = true;
+}
+function clearWalkInput() {
+  keys.clear();
+  stick = { x: 0, z: 0 };
+  drag = null;
+  stopWalker(walker);
+  $("#joystick-knob").style.transform = "";
+}
+function setWalkPaused(paused) {
+  walkPaused = paused;
+  clearWalkInput();
+  $("#walk-start").hidden = !paused;
+  $("#walk-start-title").textContent = hasExplored
+    ? "Visite en pause."
+    : "À vous d’explorer.";
+  $("#start-exploring").textContent = hasExplored
+    ? "Reprendre la visite"
+    : "Cliquer pour commencer";
+  document.body.classList.toggle("walk-paused", paused);
+  if (paused) $("#interact").hidden = true;
+  dirty = true;
+}
+function enableDragLook() {
+  if (!walking) return;
+  lookMode = "drag";
+  lockPending = false;
+  hasExplored = true;
+  document.body.classList.add("drag-look");
+  if (document.pointerLockElement) document.exitPointerLock();
+  setWalkPaused(false);
+  $(".desktop-walk-help").innerHTML =
+    "Glisser : regarder <b>·</b> <kbd>ZQSD</kbd> / <kbd>WASD</kbd> : marcher <b>·</b> <kbd>Maj</kbd> : accélérer <b>·</b> <kbd>E</kbd> : ouvrir <b>·</b> <kbd>Échap</kbd> : pause";
+}
+function startExploring() {
+  if (!walking || lockPending) return;
+  if (lookMode === "drag" || !renderer.domElement.requestPointerLock) {
+    enableDragLook();
+    return;
+  }
+  lockPending = true;
+  try {
+    const request = renderer.domElement.requestPointerLock();
+    if (request?.catch) request.catch(enableDragLook);
+  } catch {
+    enableDragLook();
+  }
+}
+function enterWalk({ syncHash = true, roomId = "sejour" } = {}) {
+  if (walking) return;
   walkBefore = {
     mode,
     position: camera.position.clone(),
     target: controls.target.clone(),
     cut: lastCut,
     ceiling: $("#ceilings").checked,
-    labels: $("#labels").checked,
   };
   flight = null;
   walking = true;
   mode = "walk";
+  if (syncHash)
+    writeViewHash(roomId === "sejour" ? "visite" : `visite/${roomId}`);
   document.body.classList.add("walking");
+  $("#sidebar").classList.remove("open");
   $("#walk-ui").hidden = false;
   controls.enabled = false;
-  const [x, z] = p(1070, 1010);
-  camera.position.set(x, 1.65, z);
-  camera.fov = 65;
+  placeVisitor(roomId);
+  camera.fov = 70;
   camera.updateProjectionMatrix();
-  lookAt(new THREE.Vector3(0.5, 1.45, 2.6));
   model.setCut(H);
   model.ceilingGroup.visible = true;
   renderPass.camera = camera;
   ssao.camera = camera;
   ssao.enabled = true;
+  setWalkPaused(lookMode === "pointer");
   resize();
-  toast("Glisse pour regarder, ZQSD ou flèches pour marcher");
   dirty = true;
 }
-function exitWalk() {
+function exitWalk({ syncHash = true } = {}) {
   if (!walking) return;
   walking = false;
-  keys.clear();
-  stick = { x: 0, z: 0 };
-  drag = null;
-  document.body.classList.remove("walking");
+  walkPaused = false;
+  lockPending = false;
+  clearWalkInput();
+  document.body.classList.remove("walking", "walk-paused");
   $("#walk-ui").hidden = true;
+  $("#walk-start").hidden = true;
   if (document.pointerLockElement) document.exitPointerLock();
   controls.enabled = true;
   camera.fov = 36;
@@ -396,6 +488,7 @@ function exitWalk() {
   model.ceilingGroup.visible = walkBefore.ceiling;
   setCut(walkBefore.cut);
   mode = walkBefore.mode;
+  if (syncHash) writeViewHash(mode === "plan" ? "plan" : "");
   camera.position.copy(walkBefore.position);
   controls.target.copy(walkBefore.target);
   controls.object = activeCamera();
@@ -406,6 +499,53 @@ function exitWalk() {
   resize();
   dirty = true;
 }
+function isVisibleObject(object) {
+  for (let o = object; o; o = o.parent) if (!o.visible) return false;
+  return true;
+}
+function updateInteraction() {
+  nearestInteraction = null;
+  if (walkPaused) {
+    $("#interact").hidden = true;
+    return;
+  }
+  camera.updateMatrixWorld();
+  model.root.updateMatrixWorld(true);
+  raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+  raycaster.far = 2.4;
+  const hit = raycaster
+    .intersectObjects(model.root.children, true)
+    .find((h) => isVisibleObject(h.object));
+  raycaster.far = Infinity;
+  if (hit?.object.userData.door)
+    nearestInteraction = { type: "porte", item: hit.object.userData.door };
+  else if (hit?.object.userData.window)
+    nearestInteraction = { type: "fenêtre", item: hit.object.userData.window };
+  $("#interact").hidden = !nearestInteraction;
+  if (nearestInteraction)
+    $("#interact").innerHTML =
+      `${nearestInteraction.item.target > 0.1 ? "Fermer" : "Ouvrir"} la ${nearestInteraction.type} <kbd>E</kbd>`;
+}
+function interact() {
+  if (!walking || walkPaused) return;
+  updateInteraction();
+  if (!nearestInteraction) return;
+  if (nearestInteraction.type === "porte")
+    model.toggleDoor(nearestInteraction.item);
+  else model.toggleWindow(nearestInteraction.item);
+  dirty = true;
+}
+async function copyVisitLink() {
+  const url = visitUrl(location.href);
+  try {
+    await navigator.clipboard.writeText(url);
+    toast("Lien de visite copié.");
+  } catch {
+    $("#share-url").value = url;
+    $("#share-dialog").showModal();
+    $("#share-url").select();
+  }
+}
 function updateWalking(dt) {
   const forward =
     (keys.has("KeyW") || keys.has("KeyZ") || keys.has("ArrowUp") ? 1 : 0) -
@@ -415,43 +555,68 @@ function updateWalking(dt) {
     (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0) -
     (keys.has("KeyA") || keys.has("KeyQ") || keys.has("ArrowLeft") ? 1 : 0) +
     stick.x;
-  const length = Math.max(1, Math.hypot(forward, side));
-  const speed = (2.2 * dt * (keys.has("ShiftLeft") ? 1.6 : 1)) / length;
-  const dx = (-Math.sin(yaw) * forward + Math.cos(yaw) * side) * speed,
-    dz = (-Math.cos(yaw) * forward - Math.sin(yaw) * side) * speed;
-  const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / 0.04));
-  for (let i = 0; i < steps; i++) {
-    if (model.canWalk(camera.position.x + dx / steps, camera.position.z))
-      camera.position.x += dx / steps;
-    if (model.canWalk(camera.position.x, camera.position.z + dz / steps))
-      camera.position.z += dz / steps;
-  }
+  let moved = 0;
+  if (!walkPaused)
+    moved = stepWalker(
+      walker,
+      {
+        forward,
+        side,
+        yaw,
+        sprint: keys.has("ShiftLeft") || keys.has("ShiftRight"),
+      },
+      dt,
+      model.canWalk,
+    );
+  const bob =
+    !reducedMotion.matches && moved > 0.0001 && !walker.elevation
+      ? Math.sin(walker.stride) * 0.012
+      : 0;
+  camera.position.set(walker.x, 1.65 + walker.elevation + bob, walker.z);
   camera.quaternion.setFromEuler(new THREE.Euler(pitch, yaw, 0, "YXZ"));
-  const r = rooms.find((r) =>
-    pointInPolygon(camera.position.x, camera.position.z, r.poly),
-  );
-  $("#current-room").textContent = r?.name || "Passage";
+  const room = rooms.find((r) => pointInPolygon(walker.x, walker.z, r.poly));
+  $("#current-room").textContent = room?.name || "Passage";
   const dot = $("#map-svg .person");
   dot.setAttribute("visibility", "visible");
-  dot.setAttribute("cx", camera.position.x * SCALE + 721);
-  dot.setAttribute("cy", camera.position.z * SCALE + 321);
-  nearestDoor = null;
-  let min = 1.8;
-  for (const d of model.doors) {
-    const v = d.frame.localToWorld(new THREE.Vector3(d.width / 2, 1.2, 0));
-    const dist = Math.hypot(v.x - camera.position.x, v.z - camera.position.z);
-    if (dist < min) {
-      min = dist;
-      nearestDoor = d;
-    }
+  dot.setAttribute("cx", walker.x * SCALE + 721);
+  dot.setAttribute("cy", walker.z * SCALE + 321);
+  interactionElapsed += dt;
+  if (interactionElapsed >= 0.1) {
+    interactionElapsed = 0;
+    updateInteraction();
   }
-  $("#interact").hidden = !nearestDoor;
-  if (nearestDoor)
-    $("#interact").innerHTML =
-      `${nearestDoor.target > 0.1 ? "Fermer" : "Ouvrir"} la porte <kbd>E</kbd>`;
 }
 function attachEvents() {
   window.addEventListener("resize", resize);
+  window.addEventListener("hashchange", applyViewHash);
+  $("#start-exploring").addEventListener("click", startExploring);
+  $("#drag-look").addEventListener("click", enableDragLook);
+  $("#share-walk").addEventListener("click", copyVisitLink);
+  $("#close-share").addEventListener("click", () => $("#share-dialog").close());
+  document.addEventListener("pointerlockchange", () => {
+    lockPending = false;
+    if (!walking) {
+      if (document.pointerLockElement === renderer.domElement)
+        document.exitPointerLock();
+      return;
+    }
+    if (document.pointerLockElement === renderer.domElement) {
+      hasExplored = true;
+      setWalkPaused(false);
+    } else if (lookMode === "pointer") setWalkPaused(true);
+  });
+  document.addEventListener("pointerlockerror", enableDragLook);
+  document.addEventListener("mousemove", (e) => {
+    if (
+      !walking ||
+      walkPaused ||
+      document.pointerLockElement !== renderer.domElement
+    )
+      return;
+    yaw -= e.movementX * 0.0022;
+    pitch = THREE.MathUtils.clamp(pitch - e.movementY * 0.0022, -1.4, 1.4);
+    dirty = true;
+  });
   new ResizeObserver(resize).observe(viewport);
   $$("[data-view]").forEach((b) =>
     b.addEventListener("click", () => switchView(b.dataset.view)),
@@ -498,12 +663,9 @@ function attachEvents() {
       dirty = true;
     }),
   );
-  $("#walk").addEventListener("click", enterWalk);
-  $("#exit-walk").addEventListener("click", exitWalk);
-  $("#interact").addEventListener("click", () => {
-    if (nearestDoor) model.toggleDoor(nearestDoor);
-    dirty = true;
-  });
+  $("#walk").addEventListener("click", () => enterWalk());
+  $("#exit-walk").addEventListener("click", () => exitWalk());
+  $("#interact").addEventListener("click", interact);
   $("#reset").addEventListener("click", () =>
     switchView(mode === "plan" ? "plan" : "overview"),
   );
@@ -576,12 +738,24 @@ function attachEvents() {
   renderer.domElement.addEventListener("pointerdown", (e) => {
     down = { x: e.clientX, y: e.clientY };
     if (walking) {
-      drag = { id: e.pointerId, x: e.clientX, y: e.clientY };
-      renderer.domElement.setPointerCapture(e.pointerId);
+      if (e.pointerType === "touch" || lookMode === "drag") {
+        if (walkPaused) return;
+        drag = { id: e.pointerId, x: e.clientX, y: e.clientY };
+        renderer.domElement.setPointerCapture(e.pointerId);
+      } else if (document.pointerLockElement !== renderer.domElement) {
+        down = null;
+        startExploring();
+      }
     }
   });
   renderer.domElement.addEventListener("pointermove", (e) => {
-    if (walking && drag && drag.id === e.pointerId) {
+    if (
+      walking &&
+      !walkPaused &&
+      drag &&
+      drag.id === e.pointerId &&
+      document.pointerLockElement !== renderer.domElement
+    ) {
       yaw -= (e.clientX - drag.x) * 0.003;
       pitch = THREE.MathUtils.clamp(
         pitch - (e.clientY - drag.y) * 0.003,
@@ -595,6 +769,14 @@ function attachEvents() {
   });
   renderer.domElement.addEventListener("pointerup", (e) => {
     drag = null;
+    if (
+      walking &&
+      !walkPaused &&
+      down &&
+      document.pointerLockElement === renderer.domElement &&
+      e.button === 0
+    )
+      interact();
     if (
       !walking &&
       down &&
@@ -627,9 +809,18 @@ function attachEvents() {
   document.addEventListener("keydown", (e) => {
     if (!walking) return;
     if (e.code === "Escape") {
-      exitWalk();
+      if (document.pointerLockElement) document.exitPointerLock();
+      setWalkPaused(true);
       return;
     }
+    if (
+      walkPaused ||
+      e.target.closest?.('input, textarea, select, [contenteditable="true"]') ||
+      e.ctrlKey ||
+      e.metaKey ||
+      e.altKey
+    )
+      return;
     if (
       [
         "KeyW",
@@ -643,13 +834,15 @@ function attachEvents() {
         "ArrowLeft",
         "ArrowRight",
         "ShiftLeft",
+        "ShiftRight",
+        "Space",
       ].includes(e.code)
     ) {
       e.preventDefault();
       keys.add(e.code);
     }
-    if (e.code === "KeyE" && nearestDoor && !e.repeat)
-      model.toggleDoor(nearestDoor);
+    if (e.code === "KeyE" && !e.repeat) interact();
+    if (e.code === "Space" && !e.repeat) jumpWalker(walker);
     if (e.code === "KeyL" && !e.repeat) {
       $("#lights").checked = !$("#lights").checked;
       model.setLights($("#lights").checked);
@@ -658,13 +851,16 @@ function attachEvents() {
     dirty = true;
   });
   document.addEventListener("keyup", (e) => keys.delete(e.code));
-  window.addEventListener("blur", () => {
-    keys.clear();
-    drag = null;
-    stick = { x: 0, z: 0 };
-  });
+  function pauseOnBlur() {
+    clearWalkInput();
+    if (walking) {
+      if (document.pointerLockElement) document.exitPointerLock();
+      setWalkPaused(true);
+    }
+  }
+  window.addEventListener("blur", pauseOnBlur);
   document.addEventListener("visibilitychange", () => {
-    keys.clear();
+    if (document.hidden) pauseOnBlur();
   });
   const joy = $("#joystick");
   const changeJoy = (e) => {
@@ -676,6 +872,7 @@ function attachEvents() {
     $("#joystick-knob").style.transform = `translate(${dx / l}px,${dz / l}px)`;
   };
   joy.addEventListener("pointerdown", (e) => {
+    if (walkPaused) return;
     joy.setPointerCapture(e.pointerId);
     changeJoy(e);
   });

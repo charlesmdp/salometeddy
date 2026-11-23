@@ -145,19 +145,19 @@ function chair(g, x, z, rot = 0) {
     for (let b of [-0.17, 0.17])
       box(o, a, 0.23, b, 0.035, 0.45, 0.035, M.darkOak, 0.008);
   box(o, 0, 0.46, 0, 0.48, 0.08, 0.46, M.linen, 0.06);
-  box(o, 0, 0.72, -0.19, 0.48, 0.37, 0.055, M.oak, 0.035);
+  box(o, 0, 0.72, -0.19, 0.48, 0.37, 0.055, M.oak, 0.035).name = "chair-back";
   box(o, 0, 0.72, -0.151, 0.4, 0.28, 0.03, M.linen, 0.035);
   return o;
 }
 function dining(g, x, z) {
   const o = group(g, x, 0, z);
-  box(o, 0, 0.77, 0, 1, 0.07, 2.4, M.oak, 0.08);
+  box(o, 0, 0.77, 0, 1, 0.07, 2.4, M.oak, 0.08).name = "dining-table-top";
   for (const xx of [-0.32, 0.32])
     for (const zz of [-0.86, 0.86])
       box(o, xx, 0.365, zz, 0.065, 0.73, 0.07, M.darkOak, 0.01);
   for (const zz of [-0.85, -0.28, 0.29, 0.86]) {
-    chair(o, -0.76, zz, -Math.PI / 2);
-    chair(o, 0.76, zz, Math.PI / 2);
+    chair(o, -0.76, zz, Math.PI / 2).name = `dining-chair-west-${zz}`;
+    chair(o, 0.76, zz, -Math.PI / 2).name = `dining-chair-east-${zz}`;
   }
   cyl(o, 0, 0.83, 0, 0.22, 0.045, M.ceramic, 0.17);
   for (let i = 0; i < 5; i++)
@@ -400,7 +400,7 @@ export function createFurniture(parent) {
   rug(g, ...p(1540, 620), 2.0, 3.2);
   sofa(g, sx, sz);
   const [tx, tz] = p(1515, 630);
-  box(g, tx, 0.34, tz, 0.7, 0.055, 1.2, M.stone, 0.1);
+  box(g, tx, 0.34, tz, 0.7, 0.055, 1.2, M.stone, 0.1).name = "coffee-table-top";
   cyl(g, tx, 0.16, tz - 0.34, 0.14, 0.32, M.darkOak);
   cyl(g, tx, 0.16, tz + 0.34, 0.14, 0.32, M.darkOak);
   book(g, tx, 0.39, tz, 0.22, 0.03, 0.3, "#b27756");
@@ -411,9 +411,10 @@ export function createFurniture(parent) {
   box(g, tvx + 0.027, 1.6, tvz, 0.006, 0.62, 1.08, M.darkGlass);
   box(g, tvx, 0.32, tvz, 0.25, 0.38, 1.3, M.oak, 0.015);
   const [ax, az] = p(1450, 818);
-  const arm = group(g, ax, 0, az, -0.5);
+  const arm = group(g, ax, 0, az, Math.atan2(tx - ax, tz - az));
+  arm.name = "salon-armchair";
   box(arm, 0, 0.42, 0, 0.68, 0.25, 0.68, M.olive, 0.13);
-  box(arm, 0, 0.74, -0.25, 0.68, 0.65, 0.16, M.olive, 0.1);
+  box(arm, 0, 0.74, -0.25, 0.68, 0.65, 0.16, M.olive, 0.1).name = "chair-back";
   for (let xx of [-0.3, 0.3])
     box(arm, xx, 0.58, 0, 0.1, 0.25, 0.64, M.olive, 0.05);
   for (let xx of [-0.25, 0.25])

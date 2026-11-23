@@ -1062,3 +1062,163 @@ button:disabled {
 .project-heading p {
   font-size: 14px;
 }
+
+/* First-person visit: capture the mouse after an explicit click. */
+.walk-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: auto;
+}
+#share-walk {
+  border: 1px solid #ffffff70;
+  color: #344c3b;
+  background: #f9fcf2e8;
+  backdrop-filter: blur(12px);
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+#walk-start {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #16312436;
+  backdrop-filter: blur(3px);
+  pointer-events: auto;
+  z-index: 4;
+}
+#walk-start[hidden] {
+  display: none;
+}
+.walk-start-card {
+  width: min(430px, calc(100% - 40px));
+  padding: 34px;
+  border: 1px solid #ffffffb0;
+  border-radius: 16px;
+  background: #fafcf5f5;
+  box-shadow: 0 16px 60px #182e2930;
+  text-align: center;
+}
+.walk-start-card h2 {
+  font:
+    normal 30px Georgia,
+    serif;
+  margin: 14px 0;
+}
+.walk-start-card p {
+  color: #76816c;
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0 0 22px;
+}
+#start-exploring {
+  background: #294a3d;
+  color: white;
+  width: 100%;
+  padding: 15px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.walk-start-keys {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  font-size: 12px;
+  color: #7b8872;
+  margin-top: 22px;
+  text-align: left;
+}
+.walk-start-keys kbd {
+  display: inline-block;
+  padding: 3px 5px;
+  border-color: #d5ddcb;
+  color: #40573b;
+}
+#drag-look {
+  font-size: 12px;
+  color: #87917c;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  margin-top: 24px;
+}
+.walking .walk-top {
+  z-index: 5;
+}
+.walk-paused .crosshair,
+.walk-paused #joystick,
+.walk-paused #interact {
+  display: none;
+}
+.walk-bottom {
+  max-width: calc(100% - 40px);
+  font-size: 11px;
+}
+.walk-bottom b {
+  padding: 0 7px;
+  font-weight: normal;
+  color: #9aa78c;
+}
+.touch-walk-help {
+  display: none;
+}
+#share-url {
+  width: 100%;
+  padding: 13px;
+  font-size: 14px;
+  border: 1px solid #c4cfbd;
+  background: white;
+  color: #294a3d;
+  border-radius: 6px;
+}
+@media (pointer: coarse) {
+  .desktop-walk-help {
+    display: none;
+  }
+  .touch-walk-help {
+    display: inline;
+  }
+  .walking #joystick {
+    display: block;
+    position: absolute;
+    left: 28px;
+    bottom: 90px;
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: #f6faf020;
+    border: 1px solid #ffffff60;
+    pointer-events: auto;
+    touch-action: none;
+    backdrop-filter: blur(4px);
+  }
+  #joystick-knob {
+    position: absolute;
+    left: 32px;
+    top: 32px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #f6faf0b0;
+    border: 1px solid #fff;
+    pointer-events: none;
+  }
+  .walk-paused #joystick {
+    display: none;
+  }
+}
+@media (max-width: 850px) {
+  #share-walk {
+    font-size: 11px;
+    padding: 10px;
+  }
+  .walk-bottom {
+    white-space: normal;
+    line-height: 1.8;
+  }
+  .walk-start-card {
+    padding: 26px;
+  }
+}

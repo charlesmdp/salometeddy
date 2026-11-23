@@ -24,17 +24,25 @@ Aucune clé API, base de données ou variable secrète n'est nécessaire.
 
 Documentation : https://developers.cloudflare.com/pages/framework-guides/deploy-anything/
 
+## Visite directe
+
+[Entrer dans la visite à pied](https://salometeddy.pages.dev/#visite)
+
+Le lien `#visite` ouvre directement l’appartement à hauteur d’yeux. Un clic sur « Cliquer pour commencer » active le regard libre à la souris. Le navigateur exige ce clic avant de capturer la souris.
+
+Un lien `#visite/chambre1` ou `#visite/salon` permet aussi de commencer dans une pièce. Retour et Avance du navigateur rétablissent la vue correspondant à l’URL. Le bouton « Copier le lien » partage l’accès direct depuis le domaine courant.
+
 ## Utilisation
 
 - **Maquette 3D** : glisser pour tourner, molette ou pincement pour zoomer, clic droit pour déplacer.
 - **Vue du dessus** : plan orthographique meublé.
 - **Coupe des murs** : de 20 cm à 3,28 m. Le mobilier reste entier.
 - **Les pièces** : cliquer dans la liste, sur une étiquette ou dans le plan miniature pour cadrer une pièce.
-- **Visite à pied** : ZQSD, WASD ou flèches. Glisser pour regarder, Maj pour accélérer. Sur mobile, joystick et glissement.
-- **Portes** : cliquer dans la maquette ou appuyer sur E à proximité en visite. Les doubles portes s'ouvrent ensemble.
+- **Visite à pied** : ZQSD, WASD ou flèches pour marcher, souris libre pour regarder, Maj pour accélérer, Espace pour un petit saut. Accélération progressive et collisions avec les murs, portes et principaux meubles. Sur mobile, joystick et glissement. Un mode clic-glisser reste disponible.
+- **Portes et fenêtres** : en visite, viser une ouverture à moins de 2,40 m et appuyer sur E ou cliquer. Les murs empêchent d’actionner une ouverture à travers une cloison. Les doubles portes s’ouvrent ensemble.
 - **Éclairage** : jour, soir, interrupteur général et ampoule individuelle à côté de chaque pièce. L pendant la visite.
 - **Fenêtres** : ouverture générale par interrupteur ou ouverture individuelle en cliquant dans la maquette.
-- **Échap** : quitter la visite. Le cadrage et la coupe précédents sont restaurés.
+- **Échap** : libérer la souris et mettre la visite en pause. « Reprendre la visite » reprend au même endroit. « Vue maquette » restaure le cadrage et la coupe précédents.
 - **Capture** : téléchargement d'un PNG de la vue 3D, sans les commandes d'interface.
 - Affichage indépendant du mobilier, des noms des pièces et des plafonds.
 
@@ -78,13 +86,14 @@ npm run build
 - `src/model.js` : géométrie architecturale, coupes, portes et collisions.
 - `src/furniture.js` : mobilier, sanitaires et décoration.
 - `src/materials.js` : matériaux et textures procédurales.
-- `src/main.js` : rendu, navigation et interface.
+- `src/main.js` : rendu, commandes et interface.
+- `src/navigation.js` : liens directs et déplacement à pied, testables sans GPU.
 - `src/style.css` : mise en page adaptative.
 
 Le moteur Three.js est empaqueté avec le site. Les textures sont générées localement, sans CDN d'images. Les polices Google Fonts sont facultatives, avec des polices système de secours.
 
 ## Vérifications
 
-Tests automatiques : surfaces, ouvertures contenues dans les murs, repérage des pièces, géométrie finie, hauteurs de coupe, collisions et accessibilité de toutes les pièces depuis le séjour. Compilation de production Vite.
+Tests automatiques : surfaces, ouvertures contenues dans les murs, repérage des pièces, géométrie finie, hauteurs de coupe, collisions et accessibilité de toutes les pièces depuis le séjour. Orientation des assises, liens directs, vitesse, collisions en course, pause et saut. Compilation de production Vite.
 
 La machine de contrôle utilisée pour la première version ne dispose pas de WebGL : la visite et le rendu GPU n'ont pas pu y être validés dans le navigateur. Un rendu du modèle dans un moteur 3D séparé sert au contrôle d'agencement, sans équivalence avec le rendu interactif.
