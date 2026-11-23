@@ -601,6 +601,11 @@ canvas {
   stroke: none;
   pointer-events: none;
 }
+#map-svg .map-landing {
+  stroke: #8e9686;
+  stroke-width: 8;
+  stroke-dasharray: 18 12;
+}
 #map-svg .person {
   fill: #c27142;
   stroke: #fff;

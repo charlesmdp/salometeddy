@@ -9,6 +9,7 @@ import {
   rooms,
   walls,
   footprint,
+  landing,
   pointInPolygon,
 } from "./plan.js";
 export function buildModel(scene) {
@@ -35,6 +36,16 @@ export function buildModel(scene) {
     glass = archMat(M.glass),
     brass = archMat(M.metal),
     doorMat = archMat(M.wall);
+  const entryWood = archMat(M.oak);
+  entryWood.name = "Chêne de la porte d’entrée";
+  entryWood.color.set("#bd8958");
+  entryWood.roughness = 0.56;
+  entryWood.map = M.oak.map.clone();
+  entryWood.map.center.set(0.5, 0.5);
+  entryWood.map.rotation = Math.PI / 2;
+  entryWood.map.needsUpdate = true;
+  const entryPanel = entryWood.clone();
+  entryPanel.color.set("#a8764b");
   function shapeMesh(poly, y, mat, g = root) {
     const s = new THREE.Shape();
     poly.forEach((q, i) => {
@@ -65,6 +76,23 @@ export function buildModel(scene) {
   slab.castShadow = true;
   root.add(slab);
   shapeMesh(footprint, 0.002, M.wall);
+  const [landingX, landingZ] = p(62.5, 1085);
+  box(root, landingX, -0.12, landingZ, 321 / SCALE, 0.22, 332 / SCALE,
+    material("#bdbfb3", 0.85)).name = "landing-slab";
+  shapeMesh(landing.poly, 0.009, M.stone).name = "landing-floor";
+  const landingCeiling = shapeMesh(landing.poly, landing.height,
+    material("#eeeae1"), ceilingGroup);
+  landingCeiling.material.side = THREE.DoubleSide;
+  landingCeiling.name = "landing-ceiling";
+  const [matX, matZ] = p(135, 1076.5);
+  box(root, matX, 0.022, matZ, 0.62, 0.025, 1.05, M.rug, 0.015)
+    .name = "landing-doormat";
+  const landingLight = new THREE.PointLight("#ffdfb5", 13, 6, 2);
+  landingLight.position.set(landingX, 2.55, landingZ);
+  root.add(landingLight);
+  cyl(ceilingGroup, landingX, landing.height - 0.05, landingZ, 0.18, 0.07, M.metal);
+  cyl(ceilingGroup, landingX, landing.height - 0.095, landingZ, 0.15, 0.03,
+    new THREE.MeshStandardMaterial({ color: "#fff0d7", emissive: "#ffda9b", emissiveIntensity: 1.2 }));
   for (const room of rooms) {
     shapeMesh(room.poly, 0.009, room.floor === "tile" ? M.bathfloor : M.floor);
     const ceiling = shapeMesh(room.poly, H, material("#eeeae1"), ceilingGroup);
@@ -136,7 +164,7 @@ export function buildModel(scene) {
     architectural.add(o);
     return o;
   }
-  function doorLeaf(parent, width, height, isGlass, hinge, sign) {
+  function doorLeaf(parent, width, height, isGlass, hinge, sign, entry = false) {
     const pivot = new THREE.Group();
     pivot.position.x = hinge;
     parent.add(pivot);
@@ -165,10 +193,19 @@ export function buildModel(scene) {
         width - 0.025,
         height - 0.025,
         0.04,
-        doorMat,
+        entry ? entryWood : doorMat,
         0.006,
-      );
-      for (let y of [0.5, 1.55]) {
+      ).name = entry ? "entry-door-leaf" : "door-leaf";
+      if (entry) {
+        // Panneaux et veinage visibles aussi bien depuis le palier que de l’intérieur.
+        for (const face of [-1, 1])
+          for (const col of [0, 1])
+            for (const [y, h] of [[0.54, 0.7], [1.65, 1.12]])
+              box(pivot, sign * width * (0.25 + col * 0.5), y, face * 0.026,
+                width / 2 - 0.15, h, 0.018, entryPanel, 0.008);
+        for (const y of [0.3, 1.2, height - 0.3])
+          cyl(pivot, sign * 0.025, y, 0, 0.024, 0.13, brass);
+      } else for (let y of [0.5, 1.55]) {
         for (let xx of [sign * 0.12, sign * (width - 0.12)])
           box(pivot, xx, y, 0.025, 0.025, y < 1 ? 0.6 : 1.05, 0.015, trim);
         for (let yy of [y - (y < 1 ? 0.3 : 0.525), y + (y < 1 ? 0.3 : 0.525)])
@@ -217,6 +254,7 @@ export function buildModel(scene) {
       const width = b - a;
       if (o.type === "gap") continue;
       const frame = archAt(w, a);
+      const frameMat = o.entry ? entryWood : trim;
       for (let fx of [0.018, width - 0.018])
         box(
           frame,
@@ -226,7 +264,7 @@ export function buildModel(scene) {
           0.038,
           o.top - o.sill + 0.025,
           w.t / SCALE + 0.04,
-          trim,
+          frameMat,
         );
       box(
         frame,
@@ -236,7 +274,7 @@ export function buildModel(scene) {
         width + 0.03,
         0.045,
         w.t / SCALE + 0.04,
-        trim,
+        frameMat,
       );
       if (o.type === "window") {
         box(
@@ -334,10 +372,10 @@ export function buildModel(scene) {
         const isDouble = o.double;
         const pivots = isDouble
           ? [
-              doorLeaf(frame, width / 2, o.top, !!o.glass, 0, 1),
-              doorLeaf(frame, width / 2, o.top, !!o.glass, width, -1),
+              doorLeaf(frame, width / 2, o.top, !!o.glass, 0, 1, !!o.entry),
+              doorLeaf(frame, width / 2, o.top, !!o.glass, width, -1, !!o.entry),
             ]
-          : [doorLeaf(frame, width, o.top, !!o.glass, 0, 1)];
+          : [doorLeaf(frame, width, o.top, !!o.glass, 0, 1, !!o.entry)];
         const d = {
           name: o.name || "Porte",
           frame,
@@ -360,6 +398,15 @@ export function buildModel(scene) {
       }
     }
     wallBlock(w, last, len, 0, H);
+  }
+  // Trois murs ferment le palier. Le quatrième est la façade existante avec sa porte.
+  for (const [a, b] of [
+    [[-92, 925], [208, 925]],
+    [[-92, 1245], [208, 1245]],
+    [[-92, 925], [-92, 1245]],
+  ]) {
+    wallBlock({ a, b, t: 12 }, 0,
+      Math.hypot(b[0] - a[0], b[1] - a[1]) / SCALE, 0, landing.height);
   }
   function widthCheck(a, b, len) {
     if (a < -0.001 || b > len + 0.03 || a >= b)
@@ -483,7 +530,8 @@ export function buildModel(scene) {
           z < b.z2 + 0.12
         )
           return false;
-    if (!pointInPolygon(x, z, footprint)) return false;
+    if (!pointInPolygon(x, z, footprint) && !pointInPolygon(x, z, landing.poly))
+      return false;
     for (const c of colliders)
       if (distSegment(x, z, c.x1, c.z1, c.x2, c.z2) < c.r + 0.14) return false;
     for (const d of doors) {

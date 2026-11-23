@@ -21,6 +21,19 @@ export const footprint = [
   [692, 1337],
   [194, 1337],
 ];
+// Décor de visite demandé par le client. Hors plan projet et hors surfaces.
+export const landing = {
+  id: "palier",
+  name: "Palier",
+  poly: [[-98, 919], [223, 919], [223, 1251], [-98, 1251]],
+  label: [55, 1085],
+  spawn: [-35, 1076.5],
+  look: [300, 1076.5],
+  lookHeight: 1.15,
+  color: "#b7b9ad",
+  description: "Palier fictif ajouté pour la visite",
+  height: 2.8,
+};
 export const rooms = [
   {
     id: "sejour",
@@ -218,6 +231,7 @@ export const rooms = [
   },
 ];
 export const totalArea = rooms.reduce((sum, r) => sum + r.area, 0);
+export const visitLocations = [landing, ...rooms];
 // a,b : extrémités d’axes de murs. Ouvertures repérées par distance pixel depuis a.
 const W = (a, b, t = 10, openings = []) => ({ a, b, t, openings });
 const win = (s, e, sill = 0.78, top = 2.85) => ({

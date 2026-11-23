@@ -23,6 +23,8 @@ import {
   footprint,
   pointInPolygon,
   totalArea,
+  landing,
+  visitLocations,
 } from "./plan.js";
 const $ = (s) => document.querySelector(s),
   $$ = (s) => [...document.querySelectorAll(s)];
@@ -58,10 +60,10 @@ $("#rooms-list").innerHTML = rooms
   .join("");
 $("#map-svg").innerHTML =
   `<polygon class="map-outline" points="${footprint.map((q) => q.join(",")).join(" ")}"/>` +
-  rooms
+  visitLocations
     .map(
       (r) =>
-        `<polygon tabindex="0" role="button" aria-label="Voir ${r.name}" data-room="${r.id}" points="${r.poly.map((q) => q.join(",")).join(" ")}" fill="${r.color}"/>`,
+        `<polygon tabindex="0" role="button" aria-label="Voir ${r.name}" data-room="${r.id}" class="${r.id === landing.id ? "map-landing" : ""}" points="${r.poly.map((q) => q.join(",")).join(" ")}" fill="${r.color}"/>`,
     )
     .join("") +
   '<circle class="person" cx="0" cy="0" r="29" visibility="hidden"/>';
@@ -287,7 +289,7 @@ function switchView(next, { syncHash = true } = {}) {
   dirty = true;
 }
 function focusRoom(id) {
-  const r = rooms.find((r) => r.id === id);
+  const r = visitLocations.find((r) => r.id === id);
   if (!r) return;
   if (walking) {
     placeVisitor(id);
@@ -295,7 +297,7 @@ function focusRoom(id) {
   }
   if (mode === "plan") switchView("overview");
   const [x, z] = p(...r.label),
-    area = r.area;
+    area = r.area || 6;
   const offset = Math.max(4, Math.sqrt(area) * 1.1);
   const aim = new THREE.Vector3(x, 0.2, z);
   animateCamera(
@@ -304,7 +306,7 @@ function focusRoom(id) {
   );
   $("#view-name").textContent = r.name;
   $("#view-description").textContent =
-    `${format(r.area)} m² · ${r.description}`;
+    r.area ? `${format(r.area)} m² · ${r.description}` : r.description;
   $$(".room-row").forEach((b) =>
     b.classList.toggle("active", b.dataset.room === id),
   );
@@ -369,12 +371,12 @@ function writeViewHash(hash) {
 function applyViewHash() {
   const route = parseViewHash(
     location.hash,
-    rooms.map((r) => r.id),
+    visitLocations.map((r) => r.id),
   );
   if (route.mode === "walk") {
     if (!walking)
-      enterWalk({ syncHash: false, roomId: route.roomId || "sejour" });
-    else if (route.roomId) placeVisitor(route.roomId);
+      enterWalk({ syncHash: false, roomId: route.roomId || landing.id });
+    else placeVisitor(route.roomId || landing.id);
   } else if (walking || route.mode !== mode) {
     switchView(route.mode, { syncHash: false });
   }
@@ -385,13 +387,14 @@ function lookAt(point) {
   yaw = e.y;
   pitch = e.x;
 }
-function placeVisitor(roomId = "sejour") {
-  const r = rooms.find((r) => r.id === roomId) || rooms[0];
+function placeVisitor(roomId = landing.id) {
+  const r = visitLocations.find((r) => r.id === roomId) || landing;
   const [x, z] = p(...r.spawn),
     [tx, tz] = p(...r.look);
   walker = createWalker(x, z);
   camera.position.set(x, 1.65, z);
-  lookAt(new THREE.Vector3(tx, 1.45, tz));
+  lookAt(new THREE.Vector3(tx, r.lookHeight ?? 1.45, tz));
+  $("#current-room").textContent = r.name;
   nearestInteraction = null;
   interactionElapsed = 0.1;
   dirty = true;
@@ -413,6 +416,9 @@ function setWalkPaused(paused) {
   $("#start-exploring").textContent = hasExplored
     ? "Reprendre la visite"
     : "Cliquer pour commencer";
+  $("#walk-start-description").textContent = !hasExplored && pointInPolygon(walker.x, walker.z, landing.poly)
+    ? "Ouvrez la porte en bois avec E ou le bouton à l’écran, puis entrez dans l’appartement."
+    : "Regardez autour de vous avec la souris et déplacez-vous comme dans un jeu.";
   document.body.classList.toggle("walk-paused", paused);
   if (paused) $("#interact").hidden = true;
   dirty = true;
@@ -442,7 +448,7 @@ function startExploring() {
     enableDragLook();
   }
 }
-function enterWalk({ syncHash = true, roomId = "sejour" } = {}) {
+function enterWalk({ syncHash = true, roomId = landing.id } = {}) {
   if (walking) return;
   walkBefore = {
     mode,
@@ -453,14 +459,21 @@ function enterWalk({ syncHash = true, roomId = "sejour" } = {}) {
   };
   flight = null;
   walking = true;
+  hasExplored = false;
   mode = "walk";
   if (syncHash)
-    writeViewHash(roomId === "sejour" ? "visite" : `visite/${roomId}`);
+    writeViewHash(roomId === landing.id ? "visite" : `visite/${roomId}`);
   document.body.classList.add("walking");
   $("#sidebar").classList.remove("open");
   $("#walk-ui").hidden = false;
   controls.enabled = false;
   placeVisitor(roomId);
+  if (roomId === landing.id) {
+    const entry = model.doors.find((door) => door.entry);
+    entry.angle = entry.target = 0;
+    entry.closed = true;
+    model.updateDoors(0);
+  }
   camera.fov = 70;
   camera.updateProjectionMatrix();
   model.setCut(H);
@@ -524,7 +537,7 @@ function updateInteraction() {
   $("#interact").hidden = !nearestInteraction;
   if (nearestInteraction)
     $("#interact").innerHTML =
-      `${nearestInteraction.item.target > 0.1 ? "Fermer" : "Ouvrir"} la ${nearestInteraction.type} <kbd>E</kbd>`;
+      `${nearestInteraction.item.target > 0.1 ? "Fermer" : "Ouvrir"} la ${nearestInteraction.item.entry ? "porte d’entrée" : nearestInteraction.type} <kbd>E</kbd>`;
 }
 function interact() {
   if (!walking || walkPaused) return;
@@ -574,7 +587,7 @@ function updateWalking(dt) {
       : 0;
   camera.position.set(walker.x, 1.65 + walker.elevation + bob, walker.z);
   camera.quaternion.setFromEuler(new THREE.Euler(pitch, yaw, 0, "YXZ"));
-  const room = rooms.find((r) => pointInPolygon(walker.x, walker.z, r.poly));
+  const room = visitLocations.find((r) => pointInPolygon(walker.x, walker.z, r.poly));
   $("#current-room").textContent = room?.name || "Passage";
   const dot = $("#map-svg .person");
   dot.setAttribute("visibility", "visible");

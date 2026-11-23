@@ -10,7 +10,9 @@ import {
   H,
   walls,
   SCALE,
+  landing,
 } from "../src/plan.js";
+import { createWalker, stepWalker } from "../src/navigation.js";
 // The model itself does not need a GPU. Textures are not part of these geometry tests.
 const ctx = new Proxy({}, { get: () => () => {}, set: () => true });
 globalThis.document = {
@@ -58,7 +60,7 @@ test("Meshes contain finite vertices and plausible bounds", () => {
   });
   assert.ok(meshes > 100);
   const bounds = new THREE.Box3().setFromObject(model.root);
-  assert.ok(bounds.max.x - bounds.min.x < 17);
+  assert.ok(bounds.max.x - bounds.min.x < 20);
   assert.ok(bounds.max.z - bounds.min.z < 12);
   assert.ok(bounds.max.y < 3.5);
 });
@@ -82,7 +84,49 @@ test("Wall collisions keep the visitor inside the apartment", () => {
   assert.equal(model.canWalk(...p(707, 600)), false);
   assert.equal(model.canWalk(...p(1100, 900)), true);
 });
-test("Every room can be reached from the living room with doors open", () => {
+test("The fictional landing starts outside the project and remains enclosed", () => {
+  const [x, z] = p(...landing.spawn);
+  assert.equal(pointInPolygon(x, z, footprint), false);
+  assert.equal(pointInPolygon(x, z, landing.poly), true);
+  assert.equal(model.canWalk(x, z), true);
+  for (const q of [[-120, 1076.5], [50, 909], [50, 1261]])
+    assert.equal(model.canWalk(...p(...q)), false);
+});
+
+test("The entrance is visible, operable from the landing, and blocks walking until opened", () => {
+  const entry = model.doors.find((door) => door.entry);
+  entry.angle = entry.target = 0;
+  model.updateDoors(0);
+  model.setCut(H);
+  scene.updateMatrixWorld(true);
+  const [x, z] = p(...landing.spawn), [tx, tz] = p(...landing.look);
+  const camera = new THREE.PerspectiveCamera(70, 1, 0.05, 100);
+  camera.position.set(x, 1.65, z);
+  camera.lookAt(tx, landing.lookHeight, tz);
+  camera.updateMatrixWorld();
+  const ray = new THREE.Raycaster();
+  ray.setFromCamera(new THREE.Vector2(), camera);
+  ray.far = 2.4;
+  const hit = ray.intersectObjects(model.root.children, true).find((hit) => {
+    for (let o = hit.object; o; o = o.parent) if (!o.visible) return false;
+    return true;
+  });
+  assert.equal(hit?.object.userData.door, entry);
+
+  const walker = createWalker(x, z);
+  const doorwayX = entry.frame.position.x;
+  const forward = { forward: 1, yaw: -Math.PI / 2, sprint: true };
+  for (let i = 0; i < 120; i++) stepWalker(walker, forward, 1 / 60, model.canWalk);
+  assert.ok(walker.x < doorwayX - 0.13, "Closed entrance must stop the visitor");
+  model.toggleDoor(entry);
+  for (let i = 0; i < 90; i++) model.updateDoors(1 / 60);
+  for (let i = 0; i < 90; i++) stepWalker(walker, forward, 1 / 60, model.canWalk);
+  assert.ok(walker.x > doorwayX + 0.3, "Open entrance must let the visitor enter");
+  assert.equal(pointInPolygon(walker.x, walker.z, rooms.find((r) => r.id === "entree").poly), true);
+  model.setCut(1.2);
+});
+
+test("Every room can be reached from the landing with doors open", () => {
   for (const d of model.doors) {
     d.target = Math.PI * 0.48;
     d.angle = d.target;
@@ -90,7 +134,7 @@ test("Every room can be reached from the living room with doors open", () => {
   model.updateDoors(1);
   scene.updateMatrixWorld(true);
   const step = 0.09,
-    minX = -4.4,
+    minX = -6.8,
     minZ = -0.4,
     maxX = 12,
     maxZ = 10.6,
@@ -101,7 +145,7 @@ test("Every room can be reached from the living room with doors open", () => {
     for (let ix = 0; ix < nx; ix++)
       if (model.canWalk(minX + ix * step, minZ + iz * step))
         pass[iz * nx + ix] = 1;
-  const start = p(1070, 1010),
+  const start = p(...landing.spawn),
     startI =
       Math.round((start[1] - minZ) / step) * nx +
       Math.round((start[0] - minX) / step),
