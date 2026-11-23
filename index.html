@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#233c35" />
+    <meta
+      name="description"
+      content="Visite 3D du projet définitif d'aménagement Aguesseau. Maquette interactive, plan, coupes et visite à pied."
+    />
+    <title>Aguesseau · Le projet en 3D</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  </head>
+  <body>
+    <div id="app">
+      <aside class="sidebar" id="sidebar">
+        <a class="brand" href="#" aria-label="Revenir à la vue d'ensemble"
+          ><span class="brand-mark">s</span
+          ><span>MAISON SAMA<small>ARCHITECTURE INTÉRIEURE</small></span></a
+        >
+        <div class="project-heading">
+          <span class="eyebrow">LE PROJET EN VOLUME</span>
+          <h1>Aguesseau<span>Un nouvel intérieur.</span></h1>
+          <p>L’appartement, pièce par pièce.</p>
+        </div>
+        <div class="project-facts">
+          <span><strong>101,36</strong> m² au plan</span
+          ><span><strong>2</strong> chambres</span>
+        </div>
+        <section class="section">
+          <div class="section-title">
+            <h2>Explorer</h2>
+            <span>RDC</span>
+          </div>
+          <div class="view-grid">
+            <button data-view="overview" class="selected">
+              <span class="icon" data-icon="cube"></span>Maquette 3D</button
+            ><button data-view="plan">
+              <span class="icon" data-icon="plan"></span>Vue du dessus
+            </button>
+          </div>
+          <button id="walk" class="walk-button">
+            <span class="icon" data-icon="walk"></span>Entrer dans
+            l’appartement<span class="key-cap">ZQSD</span>
+          </button>
+        </section>
+        <section class="section">
+          <div class="section-title">
+            <h2>Coupe des murs</h2>
+            <output id="cut-value">1,20 m</output>
+          </div>
+          <input
+            aria-label="Hauteur de coupe des murs"
+            id="cut"
+            type="range"
+            min="0.2"
+            max="3.28"
+            step="0.02"
+            value="1.2"
+          />
+          <div class="range-labels">
+            <span>Ouvert</span><button id="full-walls">Hauteur complète</button>
+          </div>
+          <label class="toggle-row"
+            >Mobilier & décoration<input
+              id="furniture"
+              type="checkbox"
+              checked /><span class="switch"></span
+          ></label>
+          <label class="toggle-row"
+            >Noms des pièces<input id="labels" type="checkbox" checked /><span
+              class="switch"
+            ></span
+          ></label>
+          <label class="toggle-row"
+            >Fenêtres ouvertes<input id="windows" type="checkbox" /><span
+              class="switch"
+            ></span
+          ></label>
+          <label class="toggle-row"
+            >Plafonds<input id="ceilings" type="checkbox" /><span
+              class="switch"
+            ></span
+          ></label>
+        </section>
+        <section class="section">
+          <div class="section-title"><h2>L’atmosphère</h2></div>
+          <div class="segmented">
+            <button data-light="day" class="selected">
+              <span class="icon" data-icon="sun"></span>Jour</button
+            ><button data-light="evening">
+              <span class="icon" data-icon="moon"></span>Soir
+            </button>
+          </div>
+          <label class="toggle-row"
+            >Éclairages intérieurs<input id="lights" type="checkbox" /><span
+              class="switch"
+            ></span
+          ></label>
+        </section>
+        <section class="section rooms-section">
+          <div class="section-title">
+            <h2>Les pièces</h2>
+            <span>11 espaces</span>
+          </div>
+          <div id="rooms-list"></div>
+        </section>
+        <footer class="sidebar-footer">
+          <span class="source-tag">PLAN PROJET DÉFINITIF</span>
+          <p>12 novembre 2026 · A.3.1 / A.3.2</p>
+          <button id="about-button">
+            À propos de cette maquette <span>i</span>
+          </button>
+        </footer>
+      </aside>
+      <main id="viewer" aria-label="Maquette interactive de l'appartement">
+        <div id="canvas-container"></div>
+        <div id="room-labels"></div>
+        <div class="viewer-top">
+          <button
+            id="menu-button"
+            class="icon-button"
+            aria-label="Afficher les réglages"
+          >
+            <span class="icon" data-icon="menu"></span>
+          </button>
+          <div class="project-pill">
+            <span class="pill-square"></span>Plan projet<span
+              class="pill-divider"
+            ></span
+            >12.11.2026
+          </div>
+          <div class="viewer-actions">
+            <button
+              id="capture"
+              class="icon-button"
+              title="Télécharger cette vue"
+              aria-label="Télécharger cette vue"
+            >
+              <span class="icon" data-icon="camera"></span></button
+            ><button
+              id="fullscreen"
+              class="icon-button"
+              title="Plein écran"
+              aria-label="Plein écran"
+            >
+              <span class="icon" data-icon="expand"></span>
+            </button>
+          </div>
+        </div>
+        <div class="view-caption">
+          <span id="view-name">La maquette</span
+          ><span id="view-description"
+            >Une vue d’ensemble de votre futur intérieur</span
+          >
+        </div>
+        <div id="mini-map">
+          <div class="map-title">
+            SE REPÉRER
+            <button id="map-toggle" aria-label="Masquer le plan miniature">
+              −
+            </button>
+          </div>
+          <svg
+            id="map-svg"
+            viewBox="130 230 2100 1430"
+            role="img"
+            aria-label="Plan de repérage interactif"
+          ></svg>
+        </div>
+        <div class="viewer-bottom">
+          <div id="orbit-help">
+            <span class="icon" data-icon="mouse"></span
+            ><span>Glisser pour tourner <b>·</b> Molette pour zoomer</span>
+          </div>
+          <div class="camera-toolbar">
+            <button
+              id="reset"
+              title="Recentrer"
+              aria-label="Recentrer la maquette"
+            >
+              <span class="icon" data-icon="reset"></span></button
+            ><span></span
+            ><button id="zoom-out" title="Dézoomer" aria-label="Dézoomer">
+              <span class="icon" data-icon="minus"></span></button
+            ><button id="zoom-in" title="Zoomer" aria-label="Zoomer">
+              <span class="icon" data-icon="plus"></span>
+            </button>
+          </div>
+        </div>
+        <div id="walk-ui" hidden>
+          <div class="walk-top">
+            <span class="walk-badge"
+              >VISITE À PIED <b id="current-room">Séjour</b></span
+            ><button id="exit-walk">Quitter la visite <kbd>Échap</kbd></button>
+          </div>
+          <span class="crosshair"></span
+          ><button id="interact" hidden>Ouvrir la porte <kbd>E</kbd></button>
+          <div class="walk-bottom">
+            Cliquer et glisser pour regarder <span>·</span> <kbd>Z</kbd
+            ><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> ou flèches pour avancer
+          </div>
+          <div id="joystick"><div id="joystick-knob"></div></div>
+        </div>
+        <div id="loading">
+          <div class="loading-mark">s</div>
+          <h2>Votre intérieur prend forme.</h2>
+          <p>Préparation de la maquette 3D…</p>
+          <div class="loading-line"></div>
+        </div>
+        <div id="toast" role="status"></div>
+      </main>
+    </div>
+    <dialog id="about">
+      <button id="close-about" class="dialog-close" aria-label="Fermer">
+        ×</button
+      ><span class="eyebrow">À PROPOS</span>
+      <h2>Du plan au volume.</h2>
+      <p>
+        Cette maquette reprend uniquement le
+        <strong>plan projet définitif du 12 novembre 2026</strong>, feuilles
+        A.3.1 et A.3.2 de Maison SAMA. La page « plan existant » n’est pas
+        utilisée pour l’agencement.
+      </p>
+      <p>
+        Les surfaces affichées sont celles du plan coté. La géométrie est
+        reconstruite à partir des cotes et du tracé. La table de 240 × 100 cm,
+        le canapé de 300 × 160 cm et les rangements reprennent les indications
+        du projet.
+      </p>
+      <p>
+        Les matériaux, couleurs, luminaires et certains détails de mobilier sont
+        une proposition d’ambiance. Hauteur de référence : 3,28 m, à confirmer.
+        Les hauteurs d’allège, les portes et les plafonds sont interprétés en
+        l’absence de coupes.
+      </p>
+      <p class="muted">
+        Maquette de visualisation non contractuelle. Les dimensions doivent être
+        vérifiées sur place avant travaux.
+      </p>
+      <div class="dialog-shortcuts">
+        <strong>Visite à pied</strong>
+        <p>
+          ZQSD, WASD ou flèches : marcher. Glisser : regarder. E : actionner la
+          porte proche. L : éclairages. Échap : sortir. Sur mobile : joystick à
+          gauche, regard à droite.
+        </p>
+      </div>
+    </dialog>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
